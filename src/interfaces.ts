@@ -33,7 +33,7 @@ export interface OpenAIApiResponse {
 
 export interface DifyApiRequest {
   query: string;
-  inputs?: Record<string, any>;
+  inputs: Record<string, any>;
   user: string;
   conversation_id?: string;
   response_mode: 'blocking';

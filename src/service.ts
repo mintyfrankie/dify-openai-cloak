@@ -27,6 +27,7 @@ export class TranslationService {
     const lastMessage = openAIRequest.messages[openAIRequest.messages.length - 1];
     return {
       query: lastMessage.content,
+      inputs: {},
       user: 'user', // You might want to generate a unique user ID
       response_mode: 'blocking',
       // You can add more fields here if needed
