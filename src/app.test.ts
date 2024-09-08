@@ -77,6 +77,81 @@ describe('POST /v1/chat/completions', () => {
     expect(TranslationService.prototype.request).toHaveBeenCalledWith(mockRequest, 'test-app');
   });
 
+  it('should return a valid event stream when stream is true', async () => {
+    const mockRequest = {
+      model: 'model-1',
+      messages: [
+        {
+          role: 'user',
+          content: 'Who are you?',
+        },
+      ],
+      stream: true,
+    };
+
+    const mockResponse = {
+      id: 'chatcmpl-123',
+      object: 'chat.completion',
+      created: 1677652288,
+      model: 'model-1',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'I am an AI assistant.',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 9,
+        completion_tokens: 6,
+        total_tokens: 15,
+      },
+    };
+
+    (TranslationService.prototype.request as jest.Mock).mockResolvedValue(mockResponse);
+
+    const response = await request(app)
+      .post('/v1/chat/completions')
+      .send(mockRequest)
+      .expect(200)
+      .expect('Content-Type', /text\/event-stream/);
+
+    const events = response.text.split('\n\n').filter(Boolean);
+
+    // Check if we have the correct number of events (5 words + [DONE])
+    expect(events).toHaveLength(6);
+
+    // Check the content of each event
+    const expectedWords = ['I', 'am', 'an', 'AI', 'assistant.'];
+    events.slice(0, 5).forEach((event, index) => {
+      const parsedEvent = JSON.parse(event.replace('data: ', ''));
+      expect(parsedEvent.choices[0].delta.content).toContain(expectedWords[index]);
+      expect(parsedEvent.id).toBe('chatcmpl-123');
+      expect(parsedEvent.object).toBe('chat.completion.chunk');
+      expect(parsedEvent.model).toBe('model-1');
+    });
+
+    // Check the [DONE] event
+    expect(events[5]).toBe('data: [DONE]');
+
+    // Update this expectation to not include the stream property
+    expect(TranslationService.prototype.request).toHaveBeenCalledWith(
+      {
+        model: 'model-1',
+        messages: [
+          {
+            role: 'user',
+            content: 'Who are you?',
+          },
+        ],
+      },
+      'test-app',
+    );
+  });
+
   it('should return 400 for unsupported model', async () => {
     const mockRequest = {
       model: 'unsupported-model',

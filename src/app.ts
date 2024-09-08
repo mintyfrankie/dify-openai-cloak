@@ -64,6 +64,9 @@ export function createApp() {
         return res.status(400).json({ error: `Unsupported model: ${model}` });
       }
 
+      // Remove the stream property from the request
+      const { stream: _, ...requestWithoutStream } = openAIRequest;
+
       if (stream) {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
@@ -72,7 +75,7 @@ export function createApp() {
         });
 
         const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
-          openAIRequest,
+          requestWithoutStream,
           config.application_name,
         );
 
@@ -86,7 +89,7 @@ export function createApp() {
         res.end();
       } else {
         const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
-          openAIRequest,
+          requestWithoutStream,
           config.application_name,
         );
         res.json(openAIResponse);
