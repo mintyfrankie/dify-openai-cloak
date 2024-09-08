@@ -5,6 +5,7 @@ import fs from 'fs';
 import cors from 'cors';
 import { OpenAIApiRequest, OpenAIApiResponse, OpenAIStreamingResponse } from './interfaces';
 import { TranslationService } from './service';
+import http from 'http';
 
 export interface Config {
   application_name: string;
@@ -158,7 +159,28 @@ function simulateStreamingChunks(response: OpenAIApiResponse): OpenAIStreamingRe
 if (require.main === module) {
   const app = createApp();
   const port = 3000;
-  app.listen(port, () => {
+  const server = http.createServer(app);
+
+  // Create a function to handle graceful shutdown
+  const gracefulShutdown = () => {
+    console.log('Received kill signal, shutting down gracefully');
+    server.close(() => {
+      console.log('Closed out remaining connections');
+      process.exit(0);
+    });
+
+    // If connections don't close within 10 seconds, forcefully shut down
+    setTimeout(() => {
+      console.error('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+  };
+
+  // Listen for termination signals
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+
+  server.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
   });
 }
