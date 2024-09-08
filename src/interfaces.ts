@@ -1,4 +1,3 @@
-// OpenAI API Request Interface
 export interface OpenAIApiRequest {
   model: string;
   messages: Array<{
@@ -30,7 +29,6 @@ export interface OpenAIApiRequest {
   function_call?: 'auto' | 'none' | { name: string };
 }
 
-// OpenAI API Response Interface
 export interface OpenAIApiResponse {
   id: string;
   object: string;
@@ -52,5 +50,27 @@ export interface OpenAIApiResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+  };
+}
+
+export interface DifyApiRequest {
+  query: string;
+  inputs?: Record<string, any>;
+  user: string;
+  conversation_id?: string;
+  response_mode: 'blocking';
+}
+
+export interface DifyApiResponse {
+  answer: string;
+  conversation_id: string;
+  created_at: number;
+  id: string;
+  metadata: {
+    usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
   };
 }

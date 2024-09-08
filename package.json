@@ -19,6 +19,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "axios": "^1.7.7",
     "express": "^4.17.1"
   },
   "devDependencies": {
