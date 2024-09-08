@@ -1,0 +1,6 @@
+application_name: "dify-openai-cloak"
+dify_api_endpoint: "https://api.dify.ai/v1"
+
+models:
+  model-1: DIFY_API_KEY_1
+  model-2: DIFY_API_KEY_2

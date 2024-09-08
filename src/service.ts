@@ -16,19 +16,25 @@ export class TranslationService {
     this.difyApiEndpoint = difyApiEndpoint;
   }
 
-  async request(openAIRequest: OpenAIApiRequest): Promise<OpenAIApiResponse> {
-    const difyRequest = this.translateToDifyRequest(openAIRequest);
+  async request(
+    openAIRequest: OpenAIApiRequest,
+    applicationName: string,
+  ): Promise<OpenAIApiResponse> {
+    const difyRequest = this.translateToDifyRequest(openAIRequest, applicationName);
     const difyResponse = await this.callDifyApi(difyRequest);
-    const openAIResponse = this.translateToOpenAIResponse(difyResponse);
+    const openAIResponse = this.translateToOpenAIResponse(difyResponse, openAIRequest.model);
     return openAIResponse;
   }
 
-  private translateToDifyRequest(openAIRequest: OpenAIApiRequest): DifyApiRequest {
+  private translateToDifyRequest(
+    openAIRequest: OpenAIApiRequest,
+    applicationName: string,
+  ): DifyApiRequest {
     const lastMessage = openAIRequest.messages[openAIRequest.messages.length - 1];
     return {
       query: lastMessage.content,
       inputs: {},
-      user: 'user', // You might want to generate a unique user ID
+      user: applicationName,
       response_mode: 'blocking',
       // You can add more fields here if needed
     };
@@ -50,12 +56,15 @@ export class TranslationService {
     }
   }
 
-  private translateToOpenAIResponse(difyResponse: DifyApiResponse): OpenAIApiResponse {
+  private translateToOpenAIResponse(
+    difyResponse: DifyApiResponse,
+    model: string,
+  ): OpenAIApiResponse {
     return {
       id: difyResponse.id,
       object: 'chat.completion',
       created: Math.floor(difyResponse.created_at / 1000), // Convert to seconds TODO: Check if this is correct
-      model: 'dify-model', // You might want to use a specific model name
+      model: model,
       choices: [
         {
           index: 0,
