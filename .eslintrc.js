@@ -5,7 +5,5 @@ module.exports = {
     ecmaVersion: 2020,
     sourceType: 'module',
   },
-  rules: {
-    // You can add custom rules here
-  },
+  rules: {},
 };
