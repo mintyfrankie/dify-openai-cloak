@@ -1,13 +1,23 @@
 import request from 'supertest';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs';
+import express from 'express';
 import { TranslationService } from './service';
+import dotenv from 'dotenv';
+import { createApp, loadConfig } from './app';
 
 jest.mock('./service');
-jest.mock('js-yaml');
 jest.mock('fs');
+jest.mock('dotenv');
 
-// Mock the config before importing the app
+// Use a factory function for the yaml mock
+jest.mock('js-yaml', () => {
+  return {
+    load: jest.fn(),
+  };
+});
+
+// Import app after mocking dependencies
 const mockConfig = {
   application_name: 'test-app',
   dify_api_endpoint: 'https://test-dify-api.com/v1',
@@ -17,16 +27,13 @@ const mockConfig = {
   },
 };
 
-jest.mock('js-yaml', () => ({
-  load: jest.fn().mockReturnValue(mockConfig),
-}));
-
-// Import app after mocking the config
-import { app } from './app';
-
 describe('POST /v1/chat/completions', () => {
+  let app: express.Application;
+
   beforeEach(() => {
     (fs.readFileSync as jest.Mock).mockReturnValue('dummy content');
+    (yaml.load as jest.Mock).mockReturnValue(mockConfig);
+    app = createApp();
   });
 
   it('should return a valid OpenAI API response', async () => {
@@ -102,5 +109,65 @@ describe('POST /v1/chat/completions', () => {
     const response = await request(app).post('/v1/chat/completions').send(mockRequest).expect(500);
 
     expect(response.body).toEqual({ error: 'Internal server error' });
+  });
+});
+
+describe('Config loading', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
+  it('should load config from YAML file when available', () => {
+    (fs.readFileSync as jest.Mock).mockReturnValue('dummy content');
+    (yaml.load as jest.Mock).mockReturnValue(mockConfig);
+
+    const config = loadConfig();
+
+    expect(config).toEqual(mockConfig);
+    expect(yaml.load).toHaveBeenCalled();
+    expect(dotenv.config).not.toHaveBeenCalled();
+  });
+
+  it('should fallback to environment variables when config file is not found', () => {
+    (fs.readFileSync as jest.Mock).mockImplementation(() => {
+      throw new Error('File not found');
+    });
+    process.env.APPLICATION_NAME = 'env-app';
+    process.env.DIFY_API_ENDPOINT = 'https://env-dify-api.com/v1';
+    process.env.DIFY_API_KEY = 'env-api-key';
+
+    const config = loadConfig();
+
+    expect(config).toEqual({
+      application_name: 'env-app',
+      dify_api_endpoint: 'https://env-dify-api.com/v1',
+      models: {
+        'default-model': 'env-api-key',
+      },
+    });
+    expect(yaml.load).not.toHaveBeenCalled();
+    expect(dotenv.config).toHaveBeenCalled();
+  });
+
+  it('should use default values when neither config file nor environment variables are set', () => {
+    (fs.readFileSync as jest.Mock).mockImplementation(() => {
+      throw new Error('File not found');
+    });
+    delete process.env.APPLICATION_NAME;
+    delete process.env.DIFY_API_ENDPOINT;
+    delete process.env.DIFY_API_KEY;
+
+    const config = loadConfig();
+
+    expect(config).toEqual({
+      application_name: 'default-app',
+      dify_api_endpoint: '',
+      models: {
+        'default-model': '',
+      },
+    });
+    expect(yaml.load).not.toHaveBeenCalled();
+    expect(dotenv.config).toHaveBeenCalled();
   });
 });
