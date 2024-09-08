@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import yaml from 'js-yaml';
 import fs from 'fs';
-import { OpenAIApiRequest, OpenAIApiResponse } from './interfaces';
+import { OpenAIApiRequest, OpenAIApiResponse, OpenAIStreamingResponse } from './interfaces';
 import { TranslationService } from './service';
 
 export interface Config {
@@ -58,16 +58,39 @@ export function createApp() {
     try {
       const openAIRequest: OpenAIApiRequest = req.body;
       const model = openAIRequest.model;
+      const stream = openAIRequest.stream || false;
 
       if (!translationServices[model]) {
         return res.status(400).json({ error: `Unsupported model: ${model}` });
       }
 
-      const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
-        openAIRequest,
-        config.application_name,
-      );
-      res.json(openAIResponse);
+      if (stream) {
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        });
+
+        const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
+          openAIRequest,
+          config.application_name,
+        );
+
+        // Simulate streaming by sending the response in chunks
+        const chunks = simulateStreamingChunks(openAIResponse);
+        for (const chunk of chunks) {
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        }
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+      } else {
+        const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
+          openAIRequest,
+          config.application_name,
+        );
+        res.json(openAIResponse);
+      }
     } catch (error) {
       console.error('Error processing request:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -75,6 +98,34 @@ export function createApp() {
   });
 
   return app;
+}
+
+function simulateStreamingChunks(response: OpenAIApiResponse): OpenAIStreamingResponse[] {
+  const content = response.choices[0].message.content;
+  if (!content) return [];
+
+  const words = content.split(' ');
+  const chunks: OpenAIStreamingResponse[] = [];
+
+  for (let i = 0; i < words.length; i++) {
+    chunks.push({
+      id: response.id,
+      object: 'chat.completion.chunk',
+      created: response.created,
+      model: response.model,
+      choices: [
+        {
+          index: 0,
+          delta: {
+            content: i === 0 ? words[i] : ' ' + words[i],
+          },
+          finish_reason: i === words.length - 1 ? 'stop' : null,
+        },
+      ],
+    });
+  }
+
+  return chunks;
 }
 
 if (require.main === module) {

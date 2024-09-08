@@ -4,6 +4,7 @@ export interface OpenAIApiRequest {
     role: string;
     content: string;
   }>;
+  stream?: boolean;
   // Add other fields as needed
 }
 
@@ -51,4 +52,19 @@ export interface DifyApiResponse {
       total_tokens: number;
     };
   };
+}
+
+export interface OpenAIStreamingResponse {
+  id: string;
+  object: 'chat.completion.chunk';
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      content?: string;
+      role?: string;
+    };
+    finish_reason: string | null;
+  }>;
 }
