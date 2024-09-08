@@ -10,9 +10,7 @@ describe('Express App', () => {
   });
 
   it('should have a GET route for /', () => {
-    const route = app._router.stack.find(
-      (layer: any) => layer.route && layer.route.path === '/'
-    );
+    const route = app._router.stack.find((layer: any) => layer.route && layer.route.path === '/');
     expect(route).toBeDefined();
     expect(route.route.methods.get).toBe(true);
   });
