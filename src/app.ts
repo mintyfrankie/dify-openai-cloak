@@ -18,28 +18,37 @@ export interface Config {
 }
 
 export function loadConfig(): Config {
-  try {
-    const config = yaml.load(fs.readFileSync('config.yaml', 'utf8')) as Config;
+  const configPaths = ['/app/config/config.yaml', './config.yaml'];
 
-    // Add SSL verification skip if configured
-    if (config.ssl && config.ssl.skip_ssl_verification) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-      console.warn('SSL verification is disabled. This is not recommended for production use.');
+  for (const path of configPaths) {
+    try {
+      const config = yaml.load(fs.readFileSync(path, 'utf8')) as Config;
+
+      // Add SSL verification skip if configured
+      if (config.ssl && config.ssl.skip_ssl_verification) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+        console.warn('SSL verification is disabled. This is not recommended for production use.');
+      }
+
+      console.log(`Config loaded from ${path}`);
+      return config;
+    } catch (error) {
+      // If the file doesn't exist or is invalid, continue to the next path
+      console.warn(`Failed to load config from ${path}`);
     }
-
-    return config;
-  } catch (error) {
-    console.warn('config.yaml not found or invalid. Falling back to environment variables.');
-    dotenv.config();
-    return {
-      application_name: process.env.APPLICATION_NAME || 'default-app',
-      dify_api_endpoint: process.env.DIFY_API_ENDPOINT || '',
-      cors_origin: process.env.CORS_ORIGIN || '*',
-      models: {
-        'default-model': process.env.DIFY_API_KEY || '',
-      },
-    };
   }
+
+  // If no config file is found, fall back to environment variables
+  console.warn('No valid config.yaml found. Falling back to environment variables.');
+  dotenv.config();
+  return {
+    application_name: process.env.APPLICATION_NAME || 'default-app',
+    dify_api_endpoint: process.env.DIFY_API_ENDPOINT || '',
+    cors_origin: process.env.CORS_ORIGIN || '*',
+    models: {
+      'default-model': process.env.DIFY_API_KEY || '',
+    },
+  };
 }
 
 export function validateConfig(config: Config): void {

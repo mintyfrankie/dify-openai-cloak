@@ -13,3 +13,7 @@ dist
 coverage
 .vscode
 .idea
+
+**/.DS_Store
+config.yaml
+config.example.yaml
