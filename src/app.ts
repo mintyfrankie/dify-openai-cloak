@@ -11,11 +11,22 @@ export interface Config {
   dify_api_endpoint: string;
   cors_origin: string;
   models: { [key: string]: string };
+  ssl?: {
+    skip_ssl_verification?: boolean;
+  };
 }
 
 export function loadConfig(): Config {
   try {
-    return yaml.load(fs.readFileSync('config.yaml', 'utf8')) as Config;
+    const config = yaml.load(fs.readFileSync('config.yaml', 'utf8')) as Config;
+
+    // Add SSL verification skip if configured
+    if (config.ssl && config.ssl.skip_ssl_verification) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      console.warn('SSL verification is disabled. This is not recommended for production use.');
+    }
+
+    return config;
   } catch (error) {
     console.warn('config.yaml not found or invalid. Falling back to environment variables.');
     dotenv.config();
