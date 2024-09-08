@@ -2,12 +2,14 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import yaml from 'js-yaml';
 import fs from 'fs';
+import cors from 'cors';
 import { OpenAIApiRequest, OpenAIApiResponse, OpenAIStreamingResponse } from './interfaces';
 import { TranslationService } from './service';
 
 export interface Config {
   application_name: string;
   dify_api_endpoint: string;
+  cors_origin: string;
   models: { [key: string]: string };
 }
 
@@ -20,6 +22,7 @@ export function loadConfig(): Config {
     return {
       application_name: process.env.APPLICATION_NAME || 'default-app',
       dify_api_endpoint: process.env.DIFY_API_ENDPOINT || '',
+      cors_origin: process.env.CORS_ORIGIN || '*',
       models: {
         'default-model': process.env.DIFY_API_KEY || '',
       },
@@ -46,6 +49,16 @@ export function createApp() {
   validateConfig(config);
 
   const app = express();
+
+  // Add CORS middleware
+  app.use(
+    cors({
+      origin: '*',
+      methods: ['GET', 'POST'],
+      allowedHeaders: '*',
+    }),
+  );
+
   app.use(express.json());
 
   // Create a TranslationService for each model
