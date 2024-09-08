@@ -2,8 +2,8 @@ name: Deploy to GitHub Container Registry
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 permissions:
   packages: write
