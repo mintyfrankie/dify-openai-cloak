@@ -35,7 +35,8 @@ export class TranslationService {
 
   private async callDifyApi(difyRequest: DifyApiRequest): Promise<DifyApiResponse> {
     try {
-      const response = await axios.post(this.difyApiEndpoint, difyRequest, {
+      const chatEndpoint = `${this.difyApiEndpoint}/chat-messages`;
+      const response = await axios.post(chatEndpoint, difyRequest, {
         headers: {
           Authorization: `Bearer ${this.difyApiKey}`,
           'Content-Type': 'application/json',

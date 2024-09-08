@@ -1,32 +1,10 @@
 export interface OpenAIApiRequest {
   model: string;
   messages: Array<{
-    role: 'system' | 'user' | 'assistant';
+    role: string;
     content: string;
   }>;
-  temperature?: number;
-  max_tokens?: number;
-  top_p?: number;
-  frequency_penalty?: number;
-  presence_penalty?: number;
-  n?: number;
-  stop?: string | string[];
-  functions?: Array<{
-    name: string;
-    description?: string;
-    parameters: {
-      type: 'object';
-      properties: {
-        [key: string]: {
-          type: string;
-          description?: string;
-          enum?: string[];
-        };
-      };
-      required?: string[];
-    };
-  }>;
-  function_call?: 'auto' | 'none' | { name: string };
+  // Add other fields as needed
 }
 
 export interface OpenAIApiResponse {

@@ -1,36 +1,30 @@
 import express, { Request, Response } from 'express';
-import { OpenAIApiResponse } from './interfaces';
+import dotenv from 'dotenv';
+import { OpenAIApiRequest, OpenAIApiResponse } from './interfaces';
+import { TranslationService } from './service';
+
+dotenv.config();
 
 export const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-app.post('/v1/chat/completions', (req: Request, res: Response) => {
-  try {
-    const mockResponse: OpenAIApiResponse = {
-      id: 'chatcmpl-123',
-      object: 'chat.completion',
-      created: Math.floor(Date.now() / 1000),
-      model: 'gpt-3.5-turbo-0301',
-      usage: {
-        prompt_tokens: 9,
-        completion_tokens: 12,
-        total_tokens: 21,
-      },
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: 'This is a mock response from the AI.',
-          },
-          finish_reason: 'stop',
-          index: 0,
-        },
-      ],
-    };
+const difyApiKey = process.env.DIFY_API_KEY;
+const difyApiEndpoint = process.env.DIFY_API_ENDPOINT;
 
-    res.json(mockResponse);
+if (!difyApiKey || !difyApiEndpoint) {
+  console.error('DIFY_API_KEY and DIFY_API_ENDPOINT must be set in .env file');
+  process.exit(1);
+}
+
+const translationService = new TranslationService(difyApiKey, difyApiEndpoint);
+
+app.post('/v1/chat/completions', async (req: Request, res: Response) => {
+  try {
+    const openAIRequest: OpenAIApiRequest = req.body;
+    const openAIResponse: OpenAIApiResponse = await translationService.request(openAIRequest);
+    res.json(openAIResponse);
   } catch (error) {
     console.error('Error processing request:', error);
     res.status(500).json({ error: 'Internal server error' });
