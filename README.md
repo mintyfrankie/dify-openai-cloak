@@ -12,6 +12,18 @@ It translates [OpenAI API requests](https://platform.openai.com/docs/api-referen
 - Supports multiple models with separate API keys
 - Docker support
 
+## Roadmap
+
+See [project board](https://github.com/users/mintyfrankie/projects/6) for more details.
+
+Please be noted that this project is still under development and the current implementation is not perfect. It lacks some features and has some limitations, notably:
+
+- It uses a "fake" streaming implementation which is not actually streaming responses from Dify.
+- It only uses the last message from the OpenAI request as the query for Dify.
+- It doesn't handle all possible fields from the OpenAI request (like temperature, max_tokens, etc.).
+
+Feel free to submit an issue or pull request.
+
 
 ## Installation
 
