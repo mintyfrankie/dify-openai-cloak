@@ -5,7 +5,6 @@ export interface OpenAIApiRequest {
     content: string;
   }>;
   stream?: boolean;
-  // Add other fields as needed
 }
 
 export interface OpenAIApiResponse {

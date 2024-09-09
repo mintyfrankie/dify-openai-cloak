@@ -71,7 +71,6 @@ export function createApp() {
 
   const app = express();
 
-  // Add CORS middleware
   app.use(
     cors({
       origin: '*',
@@ -170,7 +169,6 @@ if (require.main === module) {
   const port = 3000;
   const server = http.createServer(app);
 
-  // Create a function to handle graceful shutdown
   const gracefulShutdown = () => {
     console.log('Received kill signal, shutting down gracefully');
     server.close(() => {
@@ -178,14 +176,12 @@ if (require.main === module) {
       process.exit(0);
     });
 
-    // If connections don't close within 10 seconds, forcefully shut down
     setTimeout(() => {
       console.error('Could not close connections in time, forcefully shutting down');
       process.exit(1);
     }, 10000);
   };
 
-  // Listen for termination signals
   process.on('SIGTERM', gracefulShutdown);
   process.on('SIGINT', gracefulShutdown);
 

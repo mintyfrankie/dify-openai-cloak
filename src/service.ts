@@ -1,12 +1,6 @@
 import axios from 'axios';
 import { OpenAIApiRequest, OpenAIApiResponse, DifyApiRequest, DifyApiResponse } from './interfaces';
 
-// Note that this implementation makes some assumptions and simplifications:
-// It only uses the last message from the OpenAI request as the query for Dify.
-// It doesn't handle all possible fields from the OpenAI request (like temperature, max_tokens, etc.).
-// It uses a placeholder 'dify-model' as the model name in the OpenAI response.
-// It doesn't handle function calls, which are present in the OpenAI interface but not in the Dify interface.
-
 export class TranslationService {
   private difyApiKey: string;
   private difyApiEndpoint: string;
@@ -36,7 +30,6 @@ export class TranslationService {
       inputs: {},
       user: applicationName,
       response_mode: 'blocking',
-      // You can add more fields here if needed
     };
   }
 
@@ -63,7 +56,7 @@ export class TranslationService {
     return {
       id: difyResponse.id,
       object: 'chat.completion',
-      created: Math.floor(difyResponse.created_at / 1000), // Convert to seconds TODO: Check if this is correct
+      created: Math.floor(difyResponse.created_at / 1000),
       model: model,
       choices: [
         {
