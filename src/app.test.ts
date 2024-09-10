@@ -5,8 +5,21 @@ import express from 'express';
 import { TranslationService } from './service';
 import dotenv from 'dotenv';
 import { createApp, loadConfig } from './app';
+import { OpenAIApiResponse, OpenAIStreamingResponse } from './interfaces';
 
-jest.mock('./service');
+jest.mock('./service', () => ({
+  TranslationService: jest.fn().mockImplementation(() => ({
+    difyApiKey: 'mock-api-key',
+    difyApiEndpoint: 'mock-endpoint',
+    request: jest.fn(),
+    requestStream: jest.fn(),
+    translateToDifyRequest: jest.fn(),
+    callDifyApi: jest.fn(),
+    translateToOpenAIResponse: jest.fn(),
+    simulateStreamingChunks: jest.fn(),
+  })),
+}));
+
 jest.mock('fs');
 jest.mock('dotenv');
 
@@ -30,11 +43,28 @@ const mockConfig = {
 
 describe('POST /v1/chat/completions', () => {
   let app: express.Application;
+  let mockTranslationService: jest.Mocked<TranslationService>;
 
   beforeEach(() => {
     (fs.readFileSync as jest.Mock).mockReturnValue('dummy content');
     (yaml.load as jest.Mock).mockReturnValue(mockConfig);
-    app = createApp();
+
+    // Create a mock instance of TranslationService
+    mockTranslationService = {
+      difyApiKey: 'mock-api-key',
+      difyApiEndpoint: 'mock-endpoint',
+      request: jest.fn(),
+      requestStream: jest.fn(),
+      translateToDifyRequest: jest.fn(),
+      callDifyApi: jest.fn(),
+      translateToOpenAIResponse: jest.fn(),
+      simulateStreamingChunks: jest.fn(),
+    } as unknown as jest.Mocked<TranslationService>;
+
+    // Use a factory function to return the mock instance
+    const mockFactory = jest.fn().mockReturnValue(mockTranslationService);
+
+    app = createApp(mockFactory);
   });
 
   it('should return a valid OpenAI API response', async () => {
@@ -48,7 +78,7 @@ describe('POST /v1/chat/completions', () => {
       ],
     };
 
-    const mockResponse = {
+    const mockResponse: OpenAIApiResponse = {
       id: 'chatcmpl-123',
       object: 'chat.completion',
       created: 1677652288,
@@ -70,12 +100,12 @@ describe('POST /v1/chat/completions', () => {
       },
     };
 
-    (TranslationService.prototype.request as jest.Mock).mockResolvedValue(mockResponse);
+    mockTranslationService.request.mockResolvedValue(mockResponse);
 
     const response = await request(app).post('/v1/chat/completions').send(mockRequest).expect(200);
 
     expect(response.body).toEqual(mockResponse);
-    expect(TranslationService.prototype.request).toHaveBeenCalledWith(mockRequest, 'test-app');
+    expect(mockTranslationService.request).toHaveBeenCalledWith(mockRequest, 'test-app');
   });
 
   it('should return a valid event stream when stream is true', async () => {
@@ -90,29 +120,41 @@ describe('POST /v1/chat/completions', () => {
       stream: true,
     };
 
-    const mockResponse = {
-      id: 'chatcmpl-123',
-      object: 'chat.completion',
-      created: 1677652288,
-      model: 'model-1',
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'I am an AI assistant.',
+    const mockStreamResponse: OpenAIStreamingResponse[] = [
+      {
+        id: 'chatcmpl-123',
+        object: 'chat.completion.chunk',
+        created: 1677652288,
+        model: 'model-1',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: 'I',
+            },
+            finish_reason: null,
           },
-          finish_reason: 'stop',
-        },
-      ],
-      usage: {
-        prompt_tokens: 9,
-        completion_tokens: 6,
-        total_tokens: 15,
+        ],
       },
-    };
+      // ... more chunks ...
+      {
+        id: 'chatcmpl-123',
+        object: 'chat.completion.chunk',
+        created: 1677652288,
+        model: 'model-1',
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: 'assistant.',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      },
+    ];
 
-    (TranslationService.prototype.request as jest.Mock).mockResolvedValue(mockResponse);
+    mockTranslationService.requestStream.mockResolvedValue(mockStreamResponse);
 
     const response = await request(app)
       .post('/v1/chat/completions')
@@ -122,24 +164,20 @@ describe('POST /v1/chat/completions', () => {
 
     const events = response.text.split('\n\n').filter(Boolean);
 
-    // Check if we have the correct number of events (5 words + [DONE])
-    expect(events).toHaveLength(6);
+    // Check if we have the correct number of events (number of chunks + [DONE])
+    expect(events).toHaveLength(mockStreamResponse.length + 1);
 
     // Check the content of each event
-    const expectedWords = ['I', 'am', 'an', 'AI', 'assistant.'];
-    events.slice(0, 5).forEach((event, index) => {
+    events.slice(0, -1).forEach((event, index) => {
       const parsedEvent = JSON.parse(event.replace('data: ', ''));
-      expect(parsedEvent.choices[0].delta.content).toContain(expectedWords[index]);
-      expect(parsedEvent.id).toBe('chatcmpl-123');
-      expect(parsedEvent.object).toBe('chat.completion.chunk');
-      expect(parsedEvent.model).toBe('model-1');
+      expect(parsedEvent).toEqual(mockStreamResponse[index]);
     });
 
     // Check the [DONE] event
-    expect(events[5]).toBe('data: [DONE]');
+    expect(events[events.length - 1]).toBe('data: [DONE]');
 
-    // Update this expectation to not include the stream property
-    expect(TranslationService.prototype.request).toHaveBeenCalledWith(
+    // Update this expectation to use requestStream and not include the stream property
+    expect(mockTranslationService.requestStream).toHaveBeenCalledWith(
       {
         model: 'model-1',
         messages: [
@@ -180,7 +218,7 @@ describe('POST /v1/chat/completions', () => {
       ],
     };
 
-    (TranslationService.prototype.request as jest.Mock).mockRejectedValue(new Error('Test error'));
+    mockTranslationService.request.mockRejectedValue(new Error('Test error'));
 
     const response = await request(app).post('/v1/chat/completions').send(mockRequest).expect(500);
 
@@ -198,7 +236,7 @@ describe('POST /v1/chat/completions', () => {
       ],
     };
 
-    const mockResponse = {
+    const mockResponse: OpenAIApiResponse = {
       id: 'chatcmpl-123',
       object: 'chat.completion',
       created: 1677652288,
@@ -220,7 +258,7 @@ describe('POST /v1/chat/completions', () => {
       },
     };
 
-    (TranslationService.prototype.request as jest.Mock).mockResolvedValue(mockResponse);
+    mockTranslationService.request.mockResolvedValue(mockResponse);
 
     const response = await request(app)
       .post('/v1/chat/completions')

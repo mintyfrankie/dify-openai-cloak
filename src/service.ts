@@ -1,5 +1,11 @@
 import axios from 'axios';
-import { OpenAIApiRequest, OpenAIApiResponse, DifyApiRequest, DifyApiResponse } from './interfaces';
+import {
+  OpenAIApiRequest,
+  OpenAIApiResponse,
+  DifyApiRequest,
+  DifyApiResponse,
+  OpenAIStreamingResponse,
+} from './interfaces';
 
 export class TranslationService {
   private difyApiKey: string;
@@ -18,6 +24,14 @@ export class TranslationService {
     const difyResponse = await this.callDifyApi(difyRequest);
     const openAIResponse = this.translateToOpenAIResponse(difyResponse, openAIRequest.model);
     return openAIResponse;
+  }
+
+  async requestStream(
+    openAIRequest: OpenAIApiRequest,
+    applicationName: string,
+  ): Promise<OpenAIStreamingResponse[]> {
+    const openAIResponse = await this.request(openAIRequest, applicationName);
+    return this.simulateStreamingChunks(openAIResponse);
   }
 
   private translateToDifyRequest(
@@ -78,5 +92,33 @@ export class TranslationService {
         total_tokens: difyResponse.metadata.usage.total_tokens,
       },
     };
+  }
+
+  private simulateStreamingChunks(response: OpenAIApiResponse): OpenAIStreamingResponse[] {
+    const content = response.choices[0].message.content;
+    if (!content) return [];
+
+    const words = content.split(' ');
+    const chunks: OpenAIStreamingResponse[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+      chunks.push({
+        id: response.id,
+        object: 'chat.completion.chunk',
+        created: response.created,
+        model: response.model,
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: i === 0 ? words[i] : ' ' + words[i],
+            },
+            finish_reason: i === words.length - 1 ? 'stop' : null,
+          },
+        ],
+      });
+    }
+
+    return chunks;
   }
 }

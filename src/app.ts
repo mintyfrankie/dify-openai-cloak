@@ -3,15 +3,15 @@ import dotenv from 'dotenv';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import cors from 'cors';
+import http from 'http';
 import { OpenAIApiRequest, OpenAIApiResponse, OpenAIStreamingResponse } from './interfaces';
 import { TranslationService } from './service';
-import http from 'http';
 
 export interface Config {
   application_name: string;
   dify_api_endpoint: string;
-  cors_origin: string;
   models: { [key: string]: string };
+  cors_origin?: string;
   ssl?: {
     skip_ssl_verification?: boolean;
   };
@@ -65,7 +65,9 @@ export function validateConfig(config: Config): void {
   }
 }
 
-export function createApp() {
+export function createApp(
+  translationServiceFactory?: (apiKey: string, endpoint: string) => TranslationService,
+) {
   const config = loadConfig();
   validateConfig(config);
 
@@ -84,7 +86,9 @@ export function createApp() {
   // Create a TranslationService for each model
   const translationServices: { [key: string]: TranslationService } = {};
   for (const [model, apiKey] of Object.entries(config.models)) {
-    translationServices[model] = new TranslationService(apiKey, config.dify_api_endpoint);
+    translationServices[model] = translationServiceFactory
+      ? translationServiceFactory(apiKey, config.dify_api_endpoint)
+      : new TranslationService(apiKey, config.dify_api_endpoint);
   }
 
   app.post('/v1/chat/completions', async (req: Request, res: Response) => {
@@ -107,13 +111,11 @@ export function createApp() {
           Connection: 'keep-alive',
         });
 
-        const openAIResponse: OpenAIApiResponse = await translationServices[model].request(
+        const chunks = await translationServices[model].requestStream(
           requestWithoutStream,
           config.application_name,
         );
 
-        // Simulate streaming by sending the response in chunks
-        const chunks = simulateStreamingChunks(openAIResponse);
         for (const chunk of chunks) {
           res.write(`data: ${JSON.stringify(chunk)}\n\n`);
         }
@@ -134,34 +136,6 @@ export function createApp() {
   });
 
   return app;
-}
-
-function simulateStreamingChunks(response: OpenAIApiResponse): OpenAIStreamingResponse[] {
-  const content = response.choices[0].message.content;
-  if (!content) return [];
-
-  const words = content.split(' ');
-  const chunks: OpenAIStreamingResponse[] = [];
-
-  for (let i = 0; i < words.length; i++) {
-    chunks.push({
-      id: response.id,
-      object: 'chat.completion.chunk',
-      created: response.created,
-      model: response.model,
-      choices: [
-        {
-          index: 0,
-          delta: {
-            content: i === 0 ? words[i] : ' ' + words[i],
-          },
-          finish_reason: i === words.length - 1 ? 'stop' : null,
-        },
-      ],
-    });
-  }
-
-  return chunks;
 }
 
 if (require.main === module) {
