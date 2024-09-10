@@ -24,9 +24,13 @@ export class TranslationService {
     openAIRequest: OpenAIApiRequest,
     applicationName: string,
   ): DifyApiRequest {
-    const lastMessage = openAIRequest.messages[openAIRequest.messages.length - 1];
+    const formattedMessages = openAIRequest.messages
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join('\n');
+    const query = `Chat history:\n${formattedMessages}\n\nPlease respond to the last message.`;
+
     return {
-      query: lastMessage.content,
+      query: query,
       inputs: {},
       user: applicationName,
       response_mode: 'blocking',
